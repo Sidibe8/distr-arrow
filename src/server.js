@@ -95,15 +95,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Route de test
-app.get("/", (req, res) => {
-  res.send("Bienvenue ");
-});
-
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () =>
   console.log(`Serveur lancé sur http://localhost:${PORT}`)
 );
-
-// module.exports = app;
-//
