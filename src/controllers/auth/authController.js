@@ -5,12 +5,12 @@ import User from "../../models/user/User.js";
 import UserSession from "../../models/user/User_session.js";
 import Role from "../../models/role/Role.js";
 
-// Générer un token JWT
+// Générer un token JWT lié à une session
 const generateToken = (user) => {
   return jwt.sign(
     { id: user._id, role: user.role.name },
     process.env.JWT_SECRET,
-    { expiresIn: "1d" }
+    { expiresIn: "24h" }
   );
 };
 
@@ -91,43 +91,42 @@ export const login = async (req, res) => {
     if (!isMatch)
       return res.status(400).json({ error: "Mot de passe incorrect" });
 
-    const token = generateToken(user);
+    // 🔴 Fermer l’ancienne session active (s’il y en a une)
+    const lastSession = await UserSession.findOne({
+      user: user._id,
+      logout_time: { $exists: false },
+    }).sort({ login_time: -1 });
+
+    if (lastSession) {
+      lastSession.logout_time = new Date();
+      await lastSession.save();
+    }
+
+    // 🟢 Créer une nouvelle session
+    const session = await UserSession.create({
+      user: user._id,
+      login_time: new Date(),
+      ip_address: req.ip,
+      device_info: req.headers["user-agent"] || "Inconnu",
+    });
+
+    // Générer le token avec sessionId
+    const token = jwt.sign(
+      { id: user._id, role: user.role.name, sessionId: session._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
 
     // Mise à jour dernière connexion
     user.lastLogin = new Date();
     await user.save();
 
-    // Créer une nouvelle session uniquement si la précédente est fermée
-    const lastSession = await UserSession.findOne({ user: user._id }).sort({
-      login_time: -1,
+    res.json({
+      token,
+      user,
+      sessionId: session._id,
+      redirectUrl: "/",
     });
-
-    if (!lastSession || lastSession.logout_time) {
-      const session = await UserSession.create({
-        user: user._id,
-        login_time: new Date(),
-        ip_address: req.ip,
-        device_info: req.headers["user-agent"] || "Inconnu",
-      });
-
-      res.json({
-        token,
-        user,
-        sessionId: session._id,
-        redirectUrl: "/",
-        // redirectUrl:
-        //   user.role.name === "SuperAdmin" ? "/admin/dashboard" : "/user/home",
-      });
-    } else {
-      res.json({
-        token,
-        user,
-        sessionId: lastSession._id,
-        redirectUrl: "/",
-        // redirectUrl:
-        //   user.role.name === "SuperAdmin" ? "/admin/dashboard" : "/user/home",
-      });
-    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
