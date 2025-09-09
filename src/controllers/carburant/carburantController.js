@@ -14,6 +14,8 @@ export const ajouterCarburant = async (req, res) => {
       note,
     } = req.body;
 
+    console.log("ds");
+
     const utilisateur = req.userId; // ← utiliser l'ID depuis le token
 
     // Vérifier si la cuve existe

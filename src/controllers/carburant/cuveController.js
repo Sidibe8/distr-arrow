@@ -12,6 +12,8 @@ export const ajouterCuve = async (req, res) => {
       note,
     } = req.body;
 
+    // console.log();
+
     // Vérifier que le niveau actuel ne dépasse pas la capacité totale
     if (niveauActuel > capaciteTotale) {
       return res
